@@ -7,119 +7,121 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-PathLike = Union[str, Path]
+Puti = Union[str, Path]
 
 
-def _ensure_dir(path: PathLike) -> Path:
-    p = Path(path)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def _sozdat_papku(put: Puti) -> Path:
+    """Создать папку если её нет"""
+    papka = Path(put)
+    papka.mkdir(parents=True, exist_ok=True)
+    return papka
 
 
-def plot_histograms_per_column(
-    df: pd.DataFrame,
-    out_dir: PathLike,
-    max_columns: int = 6,
-    bins: int = 20,
+def narisovat_gistogrammy_po_kolonkam(
+    dannye: pd.DataFrame,
+    papka_dlya_sohraneniya: Puti,
+    maksimalno_kolonok: int = 6,
+    kolichestvo_binov: int = 20,
 ) -> List[Path]:
     """
-    Для числовых колонок строит по отдельной гистограмме.
-    Возвращает список путей к PNG.
+    Построить гистограммы для числовых колонок
     """
-    out_dir = _ensure_dir(out_dir)
-    numeric_df = df.select_dtypes(include="number")
+    papka_dlya_sohraneniya = _sozdat_papku(papka_dlya_sohraneniya)
+    chislovye_dannye = dannye.select_dtypes(include="number")
 
-    paths: List[Path] = []
-    for i, name in enumerate(numeric_df.columns[:max_columns]):
-        s = numeric_df[name].dropna()
-        if s.empty:
+    spisok_putey: List[Path] = []
+    for nomer, nazvanie in enumerate(chislovye_dannye.columns[:maksimalno_kolonok]):
+        znacheniya = chislovye_dannye[nazvanie].dropna()
+        if znacheniya.empty:
             continue
 
-        fig, ax = plt.subplots()
-        ax.hist(s.values, bins=bins)
-        ax.set_title(f"Histogram of {name}")
-        ax.set_xlabel(name)
-        ax.set_ylabel("Count")
-        fig.tight_layout()
+        figura, osi = plt.subplots()
+        osi.hist(znacheniya.values, bins=kolichestvo_binov)
+        osi.set_title(f"Гистограмма для {nazvanie}")
+        osi.set_xlabel(nazvanie)
+        osi.set_ylabel("Количество")
+        figura.tight_layout()
 
-        out_path = out_dir / f"hist_{i+1}_{name}.png"
-        fig.savefig(out_path)
-        plt.close(fig)
+        put_k_fajlu = papka_dlya_sohraneniya / f"gistogramma_{nomer+1}_{nazvanie}.png"
+        figura.savefig(put_k_fajlu)
+        plt.close(figura)
 
-        paths.append(out_path)
+        spisok_putey.append(put_k_fajlu)
 
-    return paths
+    return spisok_putey
 
 
-def plot_missing_matrix(df: pd.DataFrame, out_path: PathLike) -> Path:
+def narisovat_matritsu_propuskov(dannye: pd.DataFrame, put_k_fajlu: Puti) -> Path:
     """
-    Простая визуализация пропусков: где True=пропуск, False=значение.
+    Визуализация пропусков в данных
     """
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    put_k_fajlu = Path(put_k_fajlu)
+    put_k_fajlu.parent.mkdir(parents=True, exist_ok=True)
 
-    if df.empty:
-        # Рисуем пустой график
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, "Empty dataset", ha="center", va="center")
-        ax.axis("off")
+    if dannye.empty:
+        # Пустой график для пустых данных
+        figura, osi = plt.subplots()
+        osi.text(0.5, 0.5, "Нет данных", ha="center", va="center")
+        osi.axis("off")
     else:
-        mask = df.isna().values
-        fig, ax = plt.subplots(figsize=(min(12, df.shape[1] * 0.4), 4))
-        ax.imshow(mask, aspect="auto", interpolation="none")
-        ax.set_xlabel("Columns")
-        ax.set_ylabel("Rows")
-        ax.set_title("Missing values matrix")
-        ax.set_xticks(range(df.shape[1]))
-        ax.set_xticklabels(df.columns, rotation=90, fontsize=8)
-        ax.set_yticks([])
+        maska_propuskov = dannye.isna().values
+        figura, osi = plt.subplots(figsize=(min(12, dannye.shape[1] * 0.4), 4))
+        osi.imshow(maska_propuskov, aspect="auto", interpolation="none")
+        osi.set_xlabel("Колонки")
+        osi.set_ylabel("Строки")
+        osi.set_title("Матрица пропусков")
+        osi.set_xticks(range(dannye.shape[1]))
+        osi.set_xticklabels(dannye.columns, rotation=90, fontsize=8)
+        osi.set_yticks([])
 
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-    return out_path
+    figura.tight_layout()
+    figura.savefig(put_k_fajlu)
+    plt.close(figura)
+    return put_k_fajlu
 
 
-def plot_correlation_heatmap(df: pd.DataFrame, out_path: PathLike) -> Path:
+def narisovat_teplovuyu_kartu_korrelyatsii(dannye: pd.DataFrame, put_k_fajlu: Puti) -> Path:
     """
-    Тепловая карта корреляции числовых признаков.
+    Тепловая карта корреляций между числовыми признаками
     """
-    out_path = Path(out_path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
+    put_k_fajlu = Path(put_k_fajlu)
+    put_k_fajlu.parent.mkdir(parents=True, exist_ok=True)
 
-    numeric_df = df.select_dtypes(include="number")
-    if numeric_df.shape[1] < 2:
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, "Not enough numeric columns for correlation", ha="center", va="center")
-        ax.axis("off")
+    chislovye_dannye = dannye.select_dtypes(include="number")
+    if chislovye_dannye.shape[1] < 2:
+        figura, osi = plt.subplots()
+        osi.text(0.5, 0.5, "Недостаточно числовых колонок", ha="center", va="center")
+        osi.axis("off")
     else:
-        corr = numeric_df.corr(numeric_only=True)
-        fig, ax = plt.subplots(figsize=(min(10, corr.shape[1]), min(8, corr.shape[0])))
-        im = ax.imshow(corr.values, vmin=-1, vmax=1, cmap="coolwarm", aspect="auto")
-        ax.set_xticks(range(corr.shape[1]))
-        ax.set_xticklabels(corr.columns, rotation=90, fontsize=8)
-        ax.set_yticks(range(corr.shape[0]))
-        ax.set_yticklabels(corr.index, fontsize=8)
-        ax.set_title("Correlation heatmap")
-        fig.colorbar(im, ax=ax, label="Pearson r")
+        korrelyatsii = chislovye_dannye.corr(numeric_only=True)
+        figura, osi = plt.subplots(figsize=(min(10, korrelyatsii.shape[1]), min(8, korrelyatsii.shape[0])))
+        izobrazhenie = osi.imshow(korrelyatsii.values, vmin=-1, vmax=1, cmap="coolwarm", aspect="auto")
+        osi.set_xticks(range(korrelyatsii.shape[1]))
+        osi.set_xticklabels(korrelyatsii.columns, rotation=90, fontsize=8)
+        osi.set_yticks(range(korrelyatsii.shape[0]))
+        osi.set_yticklabels(korrelyatsii.index, fontsize=8)
+        osi.set_title("Тепловая карта корреляций")
+        figura.colorbar(izobrazhenie, ax=osi, label="Коэффициент корреляции")
 
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-    return out_path
+    figura.tight_layout()
+    figura.savefig(put_k_fajlu)
+    plt.close(figura)
+    return put_k_fajlu
 
 
-def save_top_categories_tables(
-    top_cats: Dict[str, pd.DataFrame],
-    out_dir: PathLike,
+def sohranit_tablitsy_top_kategorij(
+    top_kategorii: Dict[str, pd.DataFrame],
+    papka_dlya_sohraneniya: Puti,
 ) -> List[Path]:
     """
-    Сохраняет top-k категорий по колонкам в отдельные CSV.
+    Сохранить таблицы с топ категориями в CSV файлы
     """
-    out_dir = _ensure_dir(out_dir)
-    paths: List[Path] = []
-    for name, table in top_cats.items():
-        out_path = out_dir / f"top_values_{name}.csv"
-        table.to_csv(out_path, index=False)
-        paths.append(out_path)
-    return paths
+    papka_dlya_sohraneniya = _sozdat_papku(papka_dlya_sohraneniya)
+    spisok_putey: List[Path] = []
+    
+    for nazvanie_kolonki, tablitsa in top_kategorii.items():
+        put_k_fajlu = papka_dlya_sohraneniya / f"top_znachenij_{nazvanie_kolonki}.csv"
+        tablitsa.to_csv(put_k_fajlu, index=False)
+        spisok_putey.append(put_k_fajlu)
+        
+    return spisok_putey
