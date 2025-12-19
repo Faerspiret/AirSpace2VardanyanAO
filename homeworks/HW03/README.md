@@ -65,19 +65,7 @@ uv run eda-cli otchyot data/example.csv \
 --minimalnaya-dolya-propuskov	Порог доли пропусков	0.1
   Структура генерируемого отчета
 После выполнения команды otchyot создается папка со следующей структурой:
-
-text
-otchyoty/ (или указанная вами папка)
-├── otchyot.md              # Основной отчет в Markdown
-├── svodka.csv              # Сводная таблица по колонкам
-├── propuski.csv            # Статистика пропусков
-├── korrelyatsii.csv        # Матрица корреляций
-├── matritsa_propuskov.png  # Визуализация пропусков
-├── teplovaya_karta_korrelyatsij.png # Тепловая карта корреляций
-├── top_kategorii/          # Папка с топ-значениями категорий
-│   ├── top_znachenij_имя_колонки1.csv
-│   └── top_znachenij_имя_колонки2.csv
-└── gistogramma_*.png       # Гистограммы числовых колонок
+![Uploading image.png…]()
      Дополнительные возможности (реализованные)
   Новые эвристики качества данных
 В рамках задания были добавлены 3 новые эвристики для оценки качества данных:
