@@ -8,216 +8,239 @@ from pandas.api import types as ptypes
 
 
 @dataclass
-class ColumnSummary:
-    name: str
-    dtype: str
-    non_null: int
-    missing: int
-    missing_share: float
-    unique: int
-    example_values: List[Any]
-    is_numeric: bool
-    min: Optional[float] = None
-    max: Optional[float] = None
-    mean: Optional[float] = None
-    std: Optional[float] = None
+class SvodkaKolonki:
+    """Сводная информация по одной колонке данных"""
+    nazvanie: str
+    tip_dannyh: str
+    zapolnennyh: int
+    propuskov: int
+    dolya_propuskov: float
+    unikalnyh: int
+    primer_znacheniy: List[Any]
+    chislovaya: bool
+    minimum: Optional[float] = None
+    maximum: Optional[float] = None
+    srednee: Optional[float] = None
+    standartnoe_otklonenie: Optional[float] = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def v_slovar(self) -> Dict[str, Any]:
+        """Преобразовать в словарь для удобства"""
         return asdict(self)
 
 
 @dataclass
-class DatasetSummary:
-    n_rows: int
-    n_cols: int
-    columns: List[ColumnSummary]
+class SvodkaDannyh:
+    """Общая сводка по всем данным"""
+    kolichestvo_strok: int
+    kolichestvo_kolonok: int
+    kolonki: List[SvodkaKolonki]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def v_slovar(self) -> Dict[str, Any]:
+        """Преобразовать в словарь"""
         return {
-            "n_rows": self.n_rows,
-            "n_cols": self.n_cols,
-            "columns": [c.to_dict() for c in self.columns],
+            "kolichestvo_strok": self.kolichestvo_strok,
+            "kolichestvo_kolonok": self.kolichestvo_kolonok,
+            "kolonki": [k.v_slovar() for k in self.kolonki],
         }
 
 
-def summarize_dataset(
-    df: pd.DataFrame,
-    example_values_per_column: int = 3,
-) -> DatasetSummary:
+def sozdat_svodku(
+    dannye: pd.DataFrame,
+    kolichestvo_primerov_na_kolonku: int = 3,
+) -> SvodkaDannyh:
     """
-    Полный обзор датасета по колонкам:
-    - количество строк/столбцов;
-    - типы;
-    - пропуски;
-    - количество уникальных;
-    - несколько примерных значений;
-    - базовые числовые статистики (для numeric).
+    Создать полную сводку по набору данных
     """
-    n_rows, n_cols = df.shape
-    columns: List[ColumnSummary] = []
+    kolichestvo_strok, kolichestvo_kolonok = dannye.shape
+    spisok_kolonok: List[SvodkaKolonki] = []
 
-    for name in df.columns:
-        s = df[name]
-        dtype_str = str(s.dtype)
+    for nazvanie_kolonki in dannye.columns:
+        kolonka = dannye[nazvanie_kolonki]
+        strokovoe_predstavlenie_tipa = str(kolonka.dtype)
 
-        non_null = int(s.notna().sum())
-        missing = n_rows - non_null
-        missing_share = float(missing / n_rows) if n_rows > 0 else 0.0
-        unique = int(s.nunique(dropna=True))
+        zapolnennyh = int(kolonka.notna().sum())
+        propuskov = kolichestvo_strok - zapolnennyh
+        dolya_propuskov = float(propuskov / kolichestvo_strok) if kolichestvo_strok > 0 else 0.0
+        unikalnyh = int(kolonka.nunique(dropna=True))
 
-        # Примерные значения выводим как строки
-        examples = (
-            s.dropna().astype(str).unique()[:example_values_per_column].tolist()
-            if non_null > 0
+        # Примерные значения
+        primery = (
+            kolonka.dropna().astype(str).unique()[:kolichestvo_primerov_na_kolonku].tolist()
+            if zapolnennyh > 0
             else []
         )
 
-        is_numeric = bool(ptypes.is_numeric_dtype(s))
-        min_val: Optional[float] = None
-        max_val: Optional[float] = None
-        mean_val: Optional[float] = None
-        std_val: Optional[float] = None
+        chislovaya = bool(ptypes.is_numeric_dtype(kolonka))
+        minimum: Optional[float] = None
+        maximum: Optional[float] = None
+        srednee: Optional[float] = None
+        standartnoe_otklonenie: Optional[float] = None
 
-        if is_numeric and non_null > 0:
-            min_val = float(s.min())
-            max_val = float(s.max())
-            mean_val = float(s.mean())
-            std_val = float(s.std())
+        if chislovaya and zapolnennyh > 0:
+            minimum = float(kolonka.min())
+            maximum = float(kolonka.max())
+            srednee = float(kolonka.mean())
+            standartnoe_otklonenie = float(kolonka.std())
 
-        columns.append(
-            ColumnSummary(
-                name=name,
-                dtype=dtype_str,
-                non_null=non_null,
-                missing=missing,
-                missing_share=missing_share,
-                unique=unique,
-                example_values=examples,
-                is_numeric=is_numeric,
-                min=min_val,
-                max=max_val,
-                mean=mean_val,
-                std=std_val,
+        spisok_kolonok.append(
+            SvodkaKolonki(
+                nazvanie=nazvanie_kolonki,
+                tip_dannyh=strokovoe_predstavlenie_tipa,
+                zapolnennyh=zapolnennyh,
+                propuskov=propuskov,
+                dolya_propuskov=dolya_propuskov,
+                unikalnyh=unikalnyh,
+                primer_znacheniy=primery,
+                chislovaya=chislovaya,
+                minimum=minimum,
+                maximum=maximum,
+                srednee=srednee,
+                standartnoe_otklonenie=standartnoe_otklonenie,
             )
         )
 
-    return DatasetSummary(n_rows=n_rows, n_cols=n_cols, columns=columns)
+    return SvodkaDannyh(
+        kolichestvo_strok=kolichestvo_strok,
+        kolichestvo_kolonok=kolichestvo_kolonok,
+        kolonki=spisok_kolonok,
+    )
 
 
-def missing_table(df: pd.DataFrame) -> pd.DataFrame:
+def tablitsa_propuskov(dannye: pd.DataFrame) -> pd.DataFrame:
     """
-    Таблица пропусков по колонкам: count/share.
+    Таблица пропусков по колонкам: количество и доля
     """
-    if df.empty:
-        return pd.DataFrame(columns=["missing_count", "missing_share"])
+    if dannye.empty:
+        return pd.DataFrame(columns=["kolichestvo_propuskov", "dolya_propuskov"])
 
-    total = df.isna().sum()
-    share = total / len(df)
-    result = (
+    vsego_propuskov = dannye.isna().sum()
+    dolya = vsego_propuskov / len(dannye)
+    rezultat = (
         pd.DataFrame(
             {
-                "missing_count": total,
-                "missing_share": share,
+                "kolichestvo_propuskov": vsego_propuskov,
+                "dolya_propuskov": dolya,
             }
         )
-        .sort_values("missing_share", ascending=False)
+        .sort_values("dolya_propuskov", ascending=False)
     )
-    return result
+    return rezultat
 
 
-def correlation_matrix(df: pd.DataFrame) -> pd.DataFrame:
+def matritsa_korrelyatsii(dannye: pd.DataFrame) -> pd.DataFrame:
     """
-    Корреляция Пирсона для числовых колонок.
+    Матрица корреляции Пирсона для числовых колонок
     """
-    numeric_df = df.select_dtypes(include="number")
-    if numeric_df.empty:
+    chislovye_kolonki = dannye.select_dtypes(include="number")
+    if chislovye_kolonki.empty:
         return pd.DataFrame()
-    return numeric_df.corr(numeric_only=True)
+    return chislovye_kolonki.corr(numeric_only=True)
 
 
-def top_categories(
-    df: pd.DataFrame,
-    max_columns: int = 5,
-    top_k: int = 5,
+def top_kategorii(
+    dannye: pd.DataFrame,
+    maksimalno_kolonok: int = 5,
+    kolichestvo_v_top: int = 5,
 ) -> Dict[str, pd.DataFrame]:
     """
-    Для категориальных/строковых колонок считает top-k значений.
-    Возвращает словарь: колонка -> DataFrame со столбцами value/count/share.
+    Для категориальных колонок найти топ значений
     """
-    result: Dict[str, pd.DataFrame] = {}
-    candidate_cols: List[str] = []
+    rezultat: Dict[str, pd.DataFrame] = {}
+    potentsialnye_kolonki: List[str] = []
 
-    for name in df.columns:
-        s = df[name]
-        if ptypes.is_object_dtype(s) or isinstance(s.dtype, pd.CategoricalDtype):
-            candidate_cols.append(name)
+    for nazvanie in dannye.columns:
+        kolonka = dannye[nazvanie]
+        if ptypes.is_object_dtype(kolonka) or isinstance(kolonka.dtype, pd.CategoricalDtype):
+            potentsialnye_kolonki.append(nazvanie)
 
-    for name in candidate_cols[:max_columns]:
-        s = df[name]
-        vc = s.value_counts(dropna=True).head(top_k)
-        if vc.empty:
+    for nazvanie in potentsialnye_kolonki[:maksimalno_kolonok]:
+        kolonka = dannye[nazvanie]
+        chastota_znacheniy = kolonka.value_counts(dropna=True).head(kolichestvo_v_top)
+        if chastota_znacheniy.empty:
             continue
-        share = vc / vc.sum()
-        table = pd.DataFrame(
+        dolya = chastota_znacheniy / chastota_znacheniy.sum()
+        tablitsa = pd.DataFrame(
             {
-                "value": vc.index.astype(str),
-                "count": vc.values,
-                "share": share.values,
+                "znachenie": chastota_znacheniy.index.astype(str),
+                "kolichestvo": chastota_znacheniy.values,
+                "dolya": dolya.values,
             }
         )
-        result[name] = table
+        rezultat[nazvanie] = tablitsa
 
-    return result
+    return rezultat
 
 
-def compute_quality_flags(summary: DatasetSummary, missing_df: pd.DataFrame) -> Dict[str, Any]:
+def proverit_kachestvo(svodka: SvodkaDannyh, tablitsa_propuskov: pd.DataFrame) -> Dict[str, Any]:
     """
-    Простейшие эвристики «качества» данных:
-    - слишком много пропусков;
-    - подозрительно мало строк;
-    и т.п.
+    Проверка качества данных по эвристикам
     """
-    flags: Dict[str, Any] = {}
-    flags["too_few_rows"] = summary.n_rows < 100
-    flags["too_many_columns"] = summary.n_cols > 100
+    flagi: Dict[str, Any] = {}
+    flagi["slishkom_malo_strok"] = svodka.kolichestvo_strok < 100
+    flagi["slishkom_mnogo_kolonok"] = svodka.kolichestvo_kolonok > 100
+    
+    # Проверка на много нулей в числовых колонках
+    porog_nulej = 0.1
+    mnogo_nulej = False
+    for kolonka in svodka.kolonki:
+        if kolonka.chislovaya and kolonka.zapolnennyh > 0:
+            # Простая эвристика - если среднее близко к нулю и мин=макс=0
+            if kolonka.minimum == 0 and kolonka.maximum == 0:
+                mnogo_nulej = True
+    flagi["mnogo_nulej"] = mnogo_nulej
+    
+    # Проверка на константные колонки
+    est_konstantnye_kolonki = any(kol.unikalnyh == 1 for kol in svodka.kolonki)
+    flagi["est_konstantnye_kolonki"] = est_konstantnye_kolonki
+    
+    # Проверка на дубликаты ID
+    podozritelnye_id = next((kol for kol in svodka.kolonki if 'id' in kol.nazvanie.lower()), None)
+    if podozritelnye_id is not None:
+        flagi["est_podozritelnye_id"] = podozritelnye_id.unikalnyh < svodka.kolichestvo_strok
+    else:
+        flagi["est_podozritelnye_id"] = False
+    
+    maksimalnaya_dolya_propuskov = float(tablitsa_propuskov["dolya_propuskov"].max()) if not tablitsa_propuskov.empty else 0.0
+    flagi["maksimalnaya_dolya_propuskov"] = maksimalnaya_dolya_propuskov
+    flagi["slishkom_mnogo_propuskov"] = maksimalnaya_dolya_propuskov > 0.5
+    
+    # Простой расчет оценки качества
+    ball_kachestva = 1.0
+    ball_kachestva -= maksimalnaya_dolya_propuskov  # чем больше пропусков, тем хуже
+    if svodka.kolichestvo_strok < 100:
+        ball_kachestva -= 0.2
+    if svodka.kolichestvo_kolonok > 100:
+        ball_kachestva -= 0.1
+    if mnogo_nulej:
+        ball_kachestva -= 0.1
+    if est_konstantnye_kolonki:
+        ball_kachestva -= 0.1
+    
+    ball_kachestva = max(0.0, min(1.0, ball_kachestva))
+    flagi["ball_kachestva"] = ball_kachestva
 
-    max_missing_share = float(missing_df["missing_share"].max()) if not missing_df.empty else 0.0
-    flags["max_missing_share"] = max_missing_share
-    flags["too_many_missing"] = max_missing_share > 0.5
-
-    # Простейший «скор» качества
-    score = 1.0
-    score -= max_missing_share  # чем больше пропусков, тем хуже
-    if summary.n_rows < 100:
-        score -= 0.2
-    if summary.n_cols > 100:
-        score -= 0.1
-
-    score = max(0.0, min(1.0, score))
-    flags["quality_score"] = score
-
-    return flags
+    return flagi
 
 
-def flatten_summary_for_print(summary: DatasetSummary) -> pd.DataFrame:
+def podgotovit_dlya_pechati(svodka: SvodkaDannyh) -> pd.DataFrame:
     """
-    Превращает DatasetSummary в табличку для более удобного вывода.
+    Преобразовать сводку в таблицу для печати
     """
-    rows: List[Dict[str, Any]] = []
-    for col in summary.columns:
-        rows.append(
+    stroki: List[Dict[str, Any]] = []
+    for kolonka in svodka.kolonki:
+        stroki.append(
             {
-                "name": col.name,
-                "dtype": col.dtype,
-                "non_null": col.non_null,
-                "missing": col.missing,
-                "missing_share": col.missing_share,
-                "unique": col.unique,
-                "is_numeric": col.is_numeric,
-                "min": col.min,
-                "max": col.max,
-                "mean": col.mean,
-                "std": col.std,
+                "nazvanie": kolonka.nazvanie,
+                "tip": kolonka.tip_dannyh,
+                "zapolnennyh": kolonka.zapolnennyh,
+                "propuskov": kolonka.propuskov,
+                "dolya_propuskov": kolonka.dolya_propuskov,
+                "unikalnyh": kolonka.unikalnyh,
+                "chislovaya": kolonka.chislovaya,
+                "minimum": kolonka.minimum,
+                "maximum": kolonka.maximum,
+                "srednee": kolonka.srednee,
+                "standartnoe_otklonenie": kolonka.standartnoe_otklonenie,
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(stroki)
