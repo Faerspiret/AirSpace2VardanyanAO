@@ -7,146 +7,172 @@ import pandas as pd
 import typer
 
 from .core import (
-    DatasetSummary,
-    compute_quality_flags,
-    correlation_matrix,
-    flatten_summary_for_print,
-    missing_table,
-    summarize_dataset,
-    top_categories,
+    SvodkaDannyh,
+    proverit_kachestvo,
+    matritsa_korrelyatsii,
+    podgotovit_dlya_pechati,
+    tablitsa_propuskov,
+    sozdat_svodku,
+    top_kategorii,
 )
 from .viz import (
-    plot_correlation_heatmap,
-    plot_missing_matrix,
-    plot_histograms_per_column,
-    save_top_categories_tables,
+    narisovat_teplovuyu_kartu_korrelyatsii,
+    narisovat_matritsu_propuskov,
+    narisovat_gistogrammy_po_kolonkam,
+    sohranit_tablitsy_top_kategorij,
 )
 
-app = typer.Typer(help="Мини-CLI для EDA CSV-файлов")
+prilozhenie = typer.Typer(help="Мини-CLI для анализа CSV файлов")
 
 
-def _load_csv(
-    path: Path,
-    sep: str = ",",
-    encoding: str = "utf-8",
+def _zagruzit_csv(
+    put: Path,
+    razdelyatel: str = ",",
+    kodirovka: str = "utf-8",
 ) -> pd.DataFrame:
-    if not path.exists():
-        raise typer.BadParameter(f"Файл '{path}' не найден")
+    """Загрузить CSV файл"""
+    if not put.exists():
+        raise typer.BadParameter(f"Файл '{put}' не найден")
     try:
-        return pd.read_csv(path, sep=sep, encoding=encoding)
-    except Exception as exc:  # noqa: BLE001
-        raise typer.BadParameter(f"Не удалось прочитать CSV: {exc}") from exc
+        return pd.read_csv(put, sep=razdelyatel, encoding=kodirovka)
+    except Exception as oshibka:
+        raise typer.BadParameter(f"Не удалось прочитать CSV: {oshibka}") from oshibka
 
 
-@app.command()
-def overview(
-    path: str = typer.Argument(..., help="Путь к CSV-файлу."),
-    sep: str = typer.Option(",", help="Разделитель в CSV."),
-    encoding: str = typer.Option("utf-8", help="Кодировка файла."),
+@prilozhenie.command()
+def obzor(
+    put: str = typer.Argument(..., help="Путь к CSV файлу."),
+    razdelyatel: str = typer.Option(",", help="Разделитель в CSV."),
+    kodirovka: str = typer.Option("utf-8", help="Кодировка файла."),
 ) -> None:
     """
-    Напечатать краткий обзор датасета:
-    - размеры;
-    - типы;
-    - простая табличка по колонкам.
+    Краткий обзор набора данных
     """
-    df = _load_csv(Path(path), sep=sep, encoding=encoding)
-    summary: DatasetSummary = summarize_dataset(df)
-    summary_df = flatten_summary_for_print(summary)
+    dannye = _zagruzit_csv(Path(put), sep=razdelyatel, encoding=kodirovka)
+    svodka: SvodkaDannyh = sozdat_svodku(dannye)
+    tablitsa_svodki = podgotovit_dlya_pechati(svodka)
 
-    typer.echo(f"Строк: {summary.n_rows}")
-    typer.echo(f"Столбцов: {summary.n_cols}")
+    typer.echo(f"Количество строк: {svodka.kolichestvo_strok}")
+    typer.echo(f"Количество колонок: {svodka.kolichestvo_kolonok}")
     typer.echo("\nКолонки:")
-    typer.echo(summary_df.to_string(index=False))
+    typer.echo(tablitsa_svodki.to_string(index=False))
 
 
-@app.command()
-def report(
-    path: str = typer.Argument(..., help="Путь к CSV-файлу."),
-    out_dir: str = typer.Option("reports", help="Каталог для отчёта."),
-    sep: str = typer.Option(",", help="Разделитель в CSV."),
-    encoding: str = typer.Option("utf-8", help="Кодировка файла."),
-    max_hist_columns: int = typer.Option(6, help="Максимум числовых колонок для гистограмм."),
+@prilozhenie.command()
+def nachalo(
+    put: str = typer.Argument(..., help="Путь к CSV файлу."),
+    kolichestvo_strok: int = typer.Option(5, help="Количество выводимых строк"),
+    razdelyatel: str = typer.Option(",", help="Разделитель в CSV."),
+    kodirovka: str = typer.Option("utf-8", help="Кодировка файла"),
 ) -> None:
     """
-    Сгенерировать полный EDA-отчёт:
-    - текстовый overview и summary по колонкам (CSV/Markdown);
-    - статистика пропусков;
-    - корреляционная матрица;
-    - top-k категорий по категориальным признакам;
-    - картинки: гистограммы, матрица пропусков, heatmap корреляции.
+    Показать начало файла
     """
-    out_root = Path(out_dir)
-    out_root.mkdir(parents=True, exist_ok=True)
+    dannye = _zagruzit_csv(Path(put), sep=razdelyatel, encoding=kodirovka)
+    svodka: SvodkaDannyh = sozdat_svodku(dannye)
+    tablitsa_svodki = podgotovit_dlya_pechati(svodka)
+    dlya_pechati = tablitsa_svodki.head(kolichestvo_strok)
+    
+    typer.echo(f"Первые {kolichestvo_strok} строк:\n")
+    typer.echo(dlya_pechati.to_string(index=False))
 
-    df = _load_csv(Path(path), sep=sep, encoding=encoding)
 
-    # 1. Обзор
-    summary = summarize_dataset(df)
-    summary_df = flatten_summary_for_print(summary)
-    missing_df = missing_table(df)
-    corr_df = correlation_matrix(df)
-    top_cats = top_categories(df)
+@prilozhenie.command()
+def otchyot(
+    put: str = typer.Argument(..., help="Путь к CSV файлу."),
+    papka_dlya_otchyota: str = typer.Option("otchyoty", help="Папка для сохранения отчёта."),
+    razdelyatel: str = typer.Option(",", help="Разделитель в CSV."),
+    kodirovka: str = typer.Option("utf-8", help="Кодировка файла."),
+    maks_gistogramm: int = typer.Option(6, help="Максимум гистограмм для числовых колонок."),
+    zagolovok: str = typer.Option("Отчёт анализа данных", help="Заголовок отчета"),
+    minimalnaya_dolya_propuskov: float = typer.Option(0.1, help="Порог доли пропусков", min=0.0, max=1.0),
+) -> None:
+    """
+    Сгенерировать полный отчёт анализа данных
+    """
+    osnovnaya_papka = Path(papka_dlya_otchyota)
+    osnovnaya_papka.mkdir(parents=True, exist_ok=True)
 
-    # 2. Качество в целом
-    quality_flags = compute_quality_flags(summary, missing_df)
+    dannye = _zagruzit_csv(Path(put), sep=razdelyatel, encoding=kodirovka)
+    
+    # 1. Создание сводок
+    svodka = sozdat_svodku(dannye)
+    tablitsa_svodki = podgotovit_dlya_pechati(svodka)
+    tablitsa_propuskov_dannyh = tablitsa_propuskov(dannye)
+    matritsa_korr = matritsa_korrelyatsii(dannye)
+    top_kategorii_dannyh = top_kategorii(dannye)
 
-    # 3. Сохраняем табличные артефакты
-    summary_df.to_csv(out_root / "summary.csv", index=False)
-    if not missing_df.empty:
-        missing_df.to_csv(out_root / "missing.csv", index=True)
-    if not corr_df.empty:
-        corr_df.to_csv(out_root / "correlation.csv", index=True)
-    save_top_categories_tables(top_cats, out_root / "top_categories")
+    # 2. Проверка качества
+    flagi_kachestva = proverit_kachestvo(svodka, tablitsa_propuskov_dannyh)
 
-    # 4. Markdown-отчёт
-    md_path = out_root / "report.md"
-    with md_path.open("w", encoding="utf-8") as f:
-        f.write(f"# EDA-отчёт\n\n")
-        f.write(f"Исходный файл: `{Path(path).name}`\n\n")
-        f.write(f"Строк: **{summary.n_rows}**, столбцов: **{summary.n_cols}**\n\n")
+    # 3. Сохранение таблиц
+    tablitsa_svodki.to_csv(osnovnaya_papka / "svodka.csv", index=False)
+    if not tablitsa_propuskov_dannyh.empty:
+        tablitsa_propuskov_dannyh.to_csv(osnovnaya_papka / "propuski.csv", index=True)
+    if not matritsa_korr.empty:
+        matritsa_korr.to_csv(osnovnaya_papka / "korrelyatsii.csv", index=True)
+    sohranit_tablitsy_top_kategorij(top_kategorii_dannyh, osnovnaya_papka / "top_kategorii")
 
-        f.write("## Качество данных (эвристики)\n\n")
-        f.write(f"- Оценка качества: **{quality_flags['quality_score']:.2f}**\n")
-        f.write(f"- Макс. доля пропусков по колонке: **{quality_flags['max_missing_share']:.2%}**\n")
-        f.write(f"- Слишком мало строк: **{quality_flags['too_few_rows']}**\n")
-        f.write(f"- Слишком много колонок: **{quality_flags['too_many_columns']}**\n")
-        f.write(f"- Слишком много пропусков: **{quality_flags['too_many_missing']}**\n\n")
+    # 4. Создание markdown отчёта
+    put_k_markdown = osnovnaya_papka / "otchyot.md"
+    with put_k_markdown.open("w", encoding="utf-8") as fajl:
+        fajl.write(f"# {zagolovok}\n\n")
+        fajl.write(f"Исходный файл: `{Path(put).name}`\n\n")
+        fajl.write(f"Строк: **{svodka.kolichestvo_strok}**, колонок: **{svodka.kolichestvo_kolonok}**\n\n")
 
-        f.write("## Колонки\n\n")
-        f.write("См. файл `summary.csv`.\n\n")
+        fajl.write("## Качество данных (эвристики)\n\n")
+        fajl.write(f"- Оценка качества: **{flagi_kachestva['ball_kachestva']:.2f}**\n")
+        fajl.write(f"- Максимальная доля пропусков: **{flagi_kachestva['maksimalnaya_dolya_propuskov']:.2%}**\n")
+        fajl.write(f"- Слишком мало строк: **{flagi_kachestva['slishkom_malo_strok']}**\n")
+        fajl.write(f"- Слишком много колонок: **{flagi_kachestva['slishkom_mnogo_kolonok']}**\n")
+        fajl.write(f"- Слишком много пропусков: **{flagi_kachestva['slishkom_mnogo_propuskov']}**\n")
+        fajl.write(f"- Есть подозрительные ID: **{flagi_kachestva['est_podozritelnye_id']}**\n")
+        fajl.write(f"- Много нулевых значений: **{flagi_kachestva['mnogo_nulej']}**\n")
+        fajl.write(f"- Есть константные колонки: **{flagi_kachestva['est_konstantnye_kolonki']}**\n\n")
+        
+        fajl.write("## Колонки\n\n")
+        fajl.write("Подробности в файле `svodka.csv`.\n\n")
 
-        f.write("## Пропуски\n\n")
-        if missing_df.empty:
-            f.write("Пропусков нет или датасет пуст.\n\n")
+        fajl.write("## Пропуски\n\n")
+        if tablitsa_propuskov_dannyh.empty:
+            fajl.write("Пропусков нет или данные пусты.\n\n")
         else:
-            f.write("См. файлы `missing.csv` и `missing_matrix.png`.\n\n")
+            fajl.write("Смотрите файлы `propuski.csv` и `matritsa_propuskov.png`.\n\n")
 
-        f.write("## Корреляция числовых признаков\n\n")
-        if corr_df.empty:
-            f.write("Недостаточно числовых колонок для корреляции.\n\n")
+        # Колонки с пропусками выше порога
+        kolonki_s_propuskami = tablitsa_propuskov_dannyh[tablitsa_propuskov_dannyh["dolya_propuskov"] > minimalnaya_dolya_propuskov]
+        if not kolonki_s_propuskami.empty:
+            fajl.write("## Колонки с большим количеством пропусков\n\n")
+            fajl.write(f"Доля пропусков > {minimalnaya_dolya_propuskov:.1%}\n\n")
+            for kolonka, stroka in kolonki_s_propuskami.iterrows():
+                fajl.write(f"- **{kolonka}**: {stroka['dolya_propuskov']:.2%}\n")
+            fajl.write("\n")
+
+        fajl.write("## Корреляции числовых признаков\n\n")
+        if matritsa_korr.empty:
+            fajl.write("Недостаточно числовых колонок для анализа корреляций.\n\n")
         else:
-            f.write("См. `correlation.csv` и `correlation_heatmap.png`.\n\n")
+            fajl.write("Смотрите `korrelyatsii.csv` и `teplovaya_karta_korrelyatsij.png`.\n\n")
 
-        f.write("## Категориальные признаки\n\n")
-        if not top_cats:
-            f.write("Категориальные/строковые признаки не найдены.\n\n")
+        fajl.write("## Категориальные признаки\n\n")
+        if not top_kategorii_dannyh:
+            fajl.write("Категориальные признаки не найдены.\n\n")
         else:
-            f.write("См. файлы в папке `top_categories/`.\n\n")
+            fajl.write("Топ значения в папке `top_kategorii/`.\n\n")
 
-        f.write("## Гистограммы числовых колонок\n\n")
-        f.write("См. файлы `hist_*.png`.\n")
+        fajl.write("## Гистограммы числовых колонок\n\n")
+        fajl.write("Смотрите файлы `gistogramma_*.png`.\n")
 
-    # 5. Картинки
-    plot_histograms_per_column(df, out_root, max_columns=max_hist_columns)
-    plot_missing_matrix(df, out_root / "missing_matrix.png")
-    plot_correlation_heatmap(df, out_root / "correlation_heatmap.png")
+    # 5. Создание графиков
+    narisovat_gistogrammy_po_kolonkam(dannye, osnovnaya_papka, maksimalno_kolonok=maks_gistogramm)
+    narisovat_matritsu_propuskov(dannye, osnovnaya_papka / "matritsa_propuskov.png")
+    narisovat_teplovuyu_kartu_korrelyatsii(dannye, osnovnaya_papka / "teplovaya_karta_korrelyatsij.png")
 
-    typer.echo(f"Отчёт сгенерирован в каталоге: {out_root}")
-    typer.echo(f"- Основной markdown: {md_path}")
-    typer.echo("- Табличные файлы: summary.csv, missing.csv, correlation.csv, top_categories/*.csv")
-    typer.echo("- Графики: hist_*.png, missing_matrix.png, correlation_heatmap.png")
+    typer.echo(f"Отчёт сохранён в: {osnovnaya_papka}")
+    typer.echo(f"- Markdown отчёт: {put_k_markdown}")
+    typer.echo("- Табличные файлы: svodka.csv, propuski.csv, korrelyatsii.csv, top_kategorii/*.csv")
+    typer.echo("- Графики: gistogramma_*.png, matritsa_propuskov.png, teplovaya_karta_korrelyatsij.png")
 
 
 if __name__ == "__main__":
-    app()
+    prilozhenie()
